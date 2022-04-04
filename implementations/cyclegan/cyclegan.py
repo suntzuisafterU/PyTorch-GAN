@@ -35,7 +35,7 @@ parser.add_argument("--img_height", type=int, default=256, help="size of image h
 parser.add_argument("--img_width", type=int, default=256, help="size of image width")
 parser.add_argument("--channels", type=int, default=3, help="number of image channels")
 parser.add_argument("--sample_interval", type=int, default=100, help="interval between saving generator outputs")
-parser.add_argument("--checkpoint_interval", type=int, default=-1, help="interval between saving model checkpoints")
+parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model checkpoints")
 parser.add_argument("--n_residual_blocks", type=int, default=9, help="number of residual blocks in generator")
 parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss weight")
 parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss weight")
@@ -155,10 +155,30 @@ def sample_images(batches_done):
 #  Training
 # ----------
 
+csv_header = [
+    'epoch',
+    'avg_loss_D', 'std_loss_D',
+    'avg_loss_G', 'std_loss_G',
+    'avg_loss_GAN', 'std_loss_GAN',
+    'avg_loss_cycle', 'std_loss_cycle',
+    'avg_loss_identity', 'std_loss_identity'
+]
+csv_file = 'loss_stats.csv'
+
+from collections import defaultdict
+import pandas as pd
+
+loss_df = pd.DataFrame(columns=csv_header, index=None)
+if os.path.isfile(csv_file):
+    # Just save a backup incase.  This shouldn't happen often but should catch my attention if a bunch of these files start showing up
+    os.rename(csv_file, csv_file + '.bak.' + str(np.random.rand()))
+
 prev_time = time.time()
 for epoch in range(opt.epoch, opt.n_epochs):
-    for i, batch in enumerate(dataloader):
 
+    loss_record = defaultdict(list)
+
+    for i, batch in enumerate(dataloader):
         # Set model input
         real_A = Variable(batch["A"].type(Tensor))
         real_B = Variable(batch["B"].type(Tensor))
@@ -250,9 +270,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
         prev_time = time.time()
 
-        # Print log
-        sys.stdout.write(
-            "\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, adv: %f, cycle: %f, identity: %f] ETA: %s"
+        out_str = "\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, adv: %f, cycle: %f, identity: %f] ETA: %s" \
             % (
                 epoch,
                 opt.n_epochs,
@@ -265,7 +283,16 @@ for epoch in range(opt.epoch, opt.n_epochs):
                 loss_identity.item(),
                 time_left,
             )
+        # Print log
+        sys.stdout.write(
+            out_str
         )
+
+        loss_record['loss_D'].append(loss_D.item())
+        loss_record['loss_G'].append(loss_G.item())
+        loss_record['loss_GAN'].append(loss_GAN.item())
+        loss_record['loss_cycle'].append(loss_cycle.item())
+        loss_record['loss_identity'].append(loss_identity.item())
 
         # If at sample interval save image
         if batches_done % opt.sample_interval == 0:
@@ -276,9 +303,52 @@ for epoch in range(opt.epoch, opt.n_epochs):
     lr_scheduler_D_A.step()
     lr_scheduler_D_B.step()
 
+    # csv_header = [
+    #     'epoch',
+    #     'avg_loss_D', 'std_loss_D',
+    #     'avg_loss_G', 'std_loss_G',
+    #     'avg_loss_GAN', 'std_loss_GAN',
+    #     'avg_loss_cycle', 'std_loss_cycle',
+    #     'avg_loss_identity', 'std_loss_identity'
+    # ]
+
+    avg_loss_D = np.asarray(loss_record['loss_D']).mean()
+    std_loss_D = np.asarray(loss_record['loss_D']).std()
+
+    avg_loss_G = np.asarray(loss_record['loss_G']).mean()
+    std_loss_G = np.asarray(loss_record['loss_G']).std()
+
+    avg_loss_GAN = np.asarray(loss_record['loss_GAN']).mean()
+    std_loss_GAN = np.asarray(loss_record['loss_GAN']).std()
+
+    avg_loss_cycle = np.asarray(loss_record['loss_cycle']).mean()
+    std_loss_cycle = np.asarray(loss_record['loss_cycle']).std()
+
+    avg_loss_identity = np.asarray(loss_record['loss_identity']).mean()
+    std_loss_identity = np.asarray(loss_record['loss_identity']).std()
+
+
+    new_loss_row = pd.DataFrame([[
+                epoch,
+                avg_loss_D, std_loss_D,
+                avg_loss_G, std_loss_G,
+                avg_loss_GAN, std_loss_GAN,
+                avg_loss_cycle, std_loss_cycle,
+                avg_loss_identity, std_loss_identity
+            ]],
+            columns=csv_header
+        )
+
+    loss_df = pd.concat([loss_df, new_loss_row], ignore_index=True)
+
+    loss_df.to_csv(csv_file)
+
+
     if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
         # Save model checkpoints
         torch.save(G_AB.state_dict(), "saved_models/%s/G_AB_%d.pth" % (opt.dataset_name, epoch))
         torch.save(G_BA.state_dict(), "saved_models/%s/G_BA_%d.pth" % (opt.dataset_name, epoch))
         torch.save(D_A.state_dict(), "saved_models/%s/D_A_%d.pth" % (opt.dataset_name, epoch))
         torch.save(D_B.state_dict(), "saved_models/%s/D_B_%d.pth" % (opt.dataset_name, epoch))
+
+
