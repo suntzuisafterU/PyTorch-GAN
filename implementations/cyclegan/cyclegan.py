@@ -76,6 +76,7 @@ if opt.epoch != 0:
     G_BA.load_state_dict(torch.load("saved_models/%s/G_BA_%d.pth" % (opt.dataset_name, opt.epoch)))
     D_A.load_state_dict(torch.load("saved_models/%s/D_A_%d.pth" % (opt.dataset_name, opt.epoch)))
     D_B.load_state_dict(torch.load("saved_models/%s/D_B_%d.pth" % (opt.dataset_name, opt.epoch)))
+    opt.epoch += 1 # increment epoch to prevent overwriting models
 else:
     # Initialize weights
     G_AB.apply(weights_init_normal)
@@ -149,6 +150,21 @@ def sample_images(batches_done):
     # Arange images along y-axis
     image_grid = torch.cat((real_A, fake_B, real_B, fake_A), 1)
     save_image(image_grid, "images/%s/%s.png" % (opt.dataset_name, batches_done), normalize=False)
+
+
+import signal
+import sys
+stop_next_epoch_flag = False
+def signal_handler(signum, frame):
+    print('Caught ctrl-c')
+    if not stop_next_epoch_flag:
+        print('First time ctrl-c was pressed, setting flag')
+        stop_next_epoch_flag = True
+    else:
+        print('Second time ctrl-c was pressed, exiting')
+        sys.exit(1)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 
 # ----------
@@ -351,4 +367,6 @@ for epoch in range(opt.epoch, opt.n_epochs):
         torch.save(D_A.state_dict(), "saved_models/%s/D_A_%d.pth" % (opt.dataset_name, epoch))
         torch.save(D_B.state_dict(), "saved_models/%s/D_B_%d.pth" % (opt.dataset_name, epoch))
 
+    if stop_next_epoch_flag:
+        sys.exit(0)
 
