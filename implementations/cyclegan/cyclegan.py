@@ -156,6 +156,7 @@ import signal
 import sys
 stop_next_epoch_flag = False
 def signal_handler(signum, frame):
+    global stop_next_epoch_flag
     print('Caught ctrl-c')
     if not stop_next_epoch_flag:
         print('First time ctrl-c was pressed, setting flag')

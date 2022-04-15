@@ -121,6 +121,7 @@ transforms_ = [
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
 ]
 
+## Munit would need the dataloader from cyclegan...
 dataloader = DataLoader(
     ImageDataset("../../data/%s" % opt.dataset_name, transforms_=transforms_),
     batch_size=opt.batch_size,

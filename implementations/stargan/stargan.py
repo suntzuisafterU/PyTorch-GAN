@@ -225,6 +225,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         real_validity, pred_cls = discriminator(imgs)
         # Fake images
         fake_validity, _ = discriminator(fake_imgs.detach())
+        ## WGAN-GP
         # Gradient penalty
         gradient_penalty = compute_gradient_penalty(discriminator, imgs.data, fake_imgs.data)
         # Adversarial loss

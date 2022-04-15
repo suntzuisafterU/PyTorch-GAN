@@ -75,6 +75,7 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
 
+        ### TODO: Paper says this Discriminator is structured as an auto-encoder... Is that true??
         # Upsampling
         self.down = nn.Sequential(nn.Conv2d(opt.channels, 64, 3, 2, 1), nn.ReLU())
         # Fully-connected layers
@@ -176,6 +177,7 @@ for epoch in range(opt.n_epochs):
         recon_imgs, img_embeddings = discriminator(gen_imgs)
 
         # Loss measures generator's ability to fool the discriminator
+        ## How does the pullaway_loss work? This might be something that could be applied to other GANS...
         g_loss = pixelwise_loss(recon_imgs, gen_imgs.detach()) + lambda_pt * pullaway_loss(img_embeddings)
 
         g_loss.backward()

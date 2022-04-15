@@ -60,9 +60,6 @@ def get_output_dir():
 
 
 
-
-
-
 G_AB.load_state_dict(torch.load("%s/G_AB_%d.pth" % (opt.model_path, opt.epoch)))
 G_BA.load_state_dict(torch.load("%s/G_BA_%d.pth" % (opt.model_path, opt.epoch)))
 D_A.load_state_dict(torch.load("%s/D_A_%d.pth" % (opt.model_path, opt.epoch)))

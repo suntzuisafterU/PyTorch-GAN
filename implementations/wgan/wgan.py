@@ -102,6 +102,7 @@ dataloader = torch.utils.data.DataLoader(
 )
 
 # Optimizers
+## Why RMSprop??
 optimizer_G = torch.optim.RMSprop(generator.parameters(), lr=opt.lr)
 optimizer_D = torch.optim.RMSprop(discriminator.parameters(), lr=opt.lr)
 

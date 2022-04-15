@@ -178,6 +178,7 @@ for epoch in range(opt.n_epochs):
             fake_imgs = generator(z)
             # Loss measures generator's ability to fool the discriminator
             # Train on fake images
+            ### linear outputs, no activation at the last layer
             fake_validity = discriminator(fake_imgs)
             g_loss = -torch.mean(fake_validity)
 

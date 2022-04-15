@@ -166,6 +166,7 @@ for epoch in range(opt.n_epochs):
         # Fake images
         fake_validity = discriminator(fake_imgs)
         # Gradient penalty
+        ## TODO: Can we just steal the gradient penalty?? What does the gradient_penalty do? Is this just stabalization?
         gradient_penalty = compute_gradient_penalty(discriminator, real_imgs.data, fake_imgs.data)
         # Adversarial loss
         d_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + lambda_gp * gradient_penalty

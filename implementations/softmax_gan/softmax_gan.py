@@ -81,7 +81,7 @@ class Discriminator(nn.Module):
 
 
 # Loss function
-adversarial_loss = torch.nn.BCELoss()
+adversarial_loss = torch.nn.BCELoss() # Does this not get used??
 
 # Initialize generator and discriminator
 generator = Generator()

@@ -258,6 +258,7 @@ for epoch in range(opt.n_epochs):
         # Information Loss
         # ------------------
 
+        ## AARONT: A third optimizer...
         optimizer_info.zero_grad()
 
         # Sample labels

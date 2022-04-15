@@ -24,7 +24,7 @@ import torch
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
 parser.add_argument("--n_epochs", type=int, default=200, help="number of epochs of training")
-parser.add_argument("--dataset_name", type=str, default="apple2orange", help="name of the dataset")
+parser.add_argument("--dataset_name", type=str, default="monet2photo", help="name of the dataset")
 parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
 parser.add_argument("--lr", type=float, default=0.0001, help="adam: learning rate")
 parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
@@ -35,7 +35,7 @@ parser.add_argument("--img_height", type=int, default=256, help="size of image h
 parser.add_argument("--img_width", type=int, default=256, help="size of image width")
 parser.add_argument("--channels", type=int, default=3, help="number of image channels")
 parser.add_argument("--sample_interval", type=int, default=100, help="interval between saving generator samples")
-parser.add_argument("--checkpoint_interval", type=int, default=-1, help="interval between saving model checkpoints")
+parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model checkpoints")
 parser.add_argument("--n_downsample", type=int, default=2, help="number downsampling layers in encoder")
 parser.add_argument("--dim", type=int, default=64, help="number of filters in first encoder layer")
 opt = parser.parse_args()
@@ -170,8 +170,27 @@ def compute_kl(mu):
 #  Training
 # ----------
 
+csv_header = [
+    'epoch',
+    'avg_loss_D', 'std_loss_D',
+    'avg_loss_G', 'std_loss_G',
+]
+csv_file = 'loss_stats.csv'
+
+from collections import defaultdict
+import pandas as pd
+
+loss_df = pd.DataFrame(columns=csv_header, index=None)
+if os.path.isfile(csv_file):
+    # Just save a backup incase.  This shouldn't happen often but should catch my attention if a bunch of these files start showing up
+    os.rename(csv_file, csv_file + '.bak.' + str(np.random.rand()))
+
+
 prev_time = time.time()
 for epoch in range(opt.epoch, opt.n_epochs):
+
+    loss_record = defaultdict(list)
+
     for i, batch in enumerate(dataloader):
 
         # Set model input
@@ -273,6 +292,10 @@ for epoch in range(opt.epoch, opt.n_epochs):
             % (epoch, opt.n_epochs, i, len(dataloader), (loss_D1 + loss_D2).item(), loss_G.item(), time_left)
         )
 
+        loss_D = loss_D1 + loss_D2
+        loss_record['loss_D'].append(loss_D.item())
+        loss_record['loss_G'].append(loss_G.item())
+
         # If at sample interval save image
         if batches_done % opt.sample_interval == 0:
             sample_images(batches_done)
@@ -281,6 +304,24 @@ for epoch in range(opt.epoch, opt.n_epochs):
     lr_scheduler_G.step()
     lr_scheduler_D1.step()
     lr_scheduler_D2.step()
+
+    avg_loss_D = np.asarray(loss_record['loss_D']).mean()
+    std_loss_D = np.asarray(loss_record['loss_D']).std()
+
+    avg_loss_G = np.asarray(loss_record['loss_G']).mean()
+    std_loss_G = np.asarray(loss_record['loss_G']).std()
+
+    new_loss_row = pd.DataFrame([[
+                epoch,
+                avg_loss_D, std_loss_D,
+                avg_loss_G, std_loss_G
+            ]],
+            columns=csv_header
+        )
+
+    loss_df = pd.concat([loss_df, new_loss_row], ignore_index=True)
+
+    loss_df.to_csv(csv_file)
 
     if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
         # Save model checkpoints

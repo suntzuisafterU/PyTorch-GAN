@@ -1,0 +1,12 @@
+## Dual gan experiments:
+
+Failed.
+With identity loss, learned the identity map.
+Had to remove skip connections, but then it seemed to fail to create nice images.
+They were blurry
+That was with critic=5, trying critic=2.
+Note that training epochs was faster with higher critic value, (about 3 times faster than cycleGAN or unit...)
+So the training budget is different.
+Results: critic=2 changed nothing...
+
+

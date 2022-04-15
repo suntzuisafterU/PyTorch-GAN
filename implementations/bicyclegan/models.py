@@ -37,7 +37,8 @@ class UNetUp(nn.Module):
     def __init__(self, in_size, out_size):
         super(UNetUp, self).__init__()
         self.model = nn.Sequential(
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2), # Defaults to bilinear?? Does not learn a kernel
+            # nn.Conv2d: input-channels, output-channels
             nn.Conv2d(in_size, out_size, 3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_size, 0.8),
             nn.ReLU(inplace=True),

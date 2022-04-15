@@ -69,6 +69,7 @@ class Encoder(nn.Module):
                 nn.InstanceNorm2d(dim * 2),
                 nn.ReLU(inplace=True),
             ]
+            # TODO: What is dim after 2 downsamples??
             dim *= 2
 
         # Residual blocks
@@ -94,6 +95,7 @@ class Generator(nn.Module):
     def __init__(self, out_channels=3, dim=64, n_upsample=2, shared_block=None):
         super(Generator, self).__init__()
 
+        # shared_block is used first in the generator, after flowing from the encoder
         self.shared_block = shared_block
 
         layers = []
