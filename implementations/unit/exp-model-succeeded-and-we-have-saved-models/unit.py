@@ -21,29 +21,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
-import signal
-import sys
-stop_next_epoch_flag = False
-def signal_handler(signum, frame):
-    global stop_next_epoch_flag
-    print('Caught ctrl-c')
-    if not stop_next_epoch_flag:
-        print('First time ctrl-c was pressed, setting flag')
-        stop_next_epoch_flag = True
-    else:
-        print('Second time ctrl-c was pressed, saving model checkpoint for epoch:', epoch)
-        # Save model checkpoints
-        torch.save(E1.state_dict(), "saved_models/%s/E1_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(E2.state_dict(), "saved_models/%s/E2_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(G1.state_dict(), "saved_models/%s/G1_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(G2.state_dict(), "saved_models/%s/G2_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(D1.state_dict(), "saved_models/%s/D1_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(D2.state_dict(), "saved_models/%s/D2_%d.pth" % (opt.dataset_name, epoch))
-        print('Still second time ctrl-c was pressed, exiting')
-        sys.exit(1)
-
-signal.signal(signal.SIGINT, signal_handler)
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
 parser.add_argument("--n_epochs", type=int, default=200, help="number of epochs of training")
@@ -57,14 +34,14 @@ parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads 
 parser.add_argument("--img_height", type=int, default=256, help="size of image height")
 parser.add_argument("--img_width", type=int, default=256, help="size of image width")
 parser.add_argument("--channels", type=int, default=3, help="number of image channels")
-parser.add_argument("--sample_interval", type=int, default=10000, help="interval between saving generator samples")
-parser.add_argument("--checkpoint_interval", type=int, default=10, help="interval between saving model checkpoints")
+parser.add_argument("--sample_interval", type=int, default=100, help="interval between saving generator samples")
+parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model checkpoints")
 parser.add_argument("--n_downsample", type=int, default=2, help="number downsampling layers in encoder")
 parser.add_argument("--dim", type=int, default=64, help="number of filters in first encoder layer")
 opt = parser.parse_args()
 print(opt)
 
-use_cuda = True if torch.cuda.is_available() else False
+cuda = True if torch.cuda.is_available() else False
 
 # Create sample and checkpoint directories
 os.makedirs("images/%s" % opt.dataset_name, exist_ok=True)
@@ -89,26 +66,7 @@ G2 = Generator(dim=opt.dim, n_upsample=opt.n_downsample, shared_block=shared_G)
 D1 = Discriminator(input_shape)
 D2 = Discriminator(input_shape)
 
-
-from GPUtil import showUtilization as gpu_usage
-from numba import cuda as numba_cuda
-
-def free_gpu_cache():
-    print("Initial GPU Usage")
-    gpu_usage()
-
-    torch.cuda.empty_cache()
-
-    numba_cuda.select_device(0)
-    numba_cuda.close()
-    numba_cuda.select_device(0)
-
-    print("GPU Usage after emptying the cache")
-    gpu_usage()
-
-
-if use_cuda:
-    free_gpu_cache()
+if cuda:
     E1 = E1.cuda()
     E2 = E2.cuda()
     G1 = G1.cuda()
@@ -126,7 +84,6 @@ if opt.epoch != 0:
     G2.load_state_dict(torch.load("saved_models/%s/G2_%d.pth" % (opt.dataset_name, opt.epoch)))
     D1.load_state_dict(torch.load("saved_models/%s/D1_%d.pth" % (opt.dataset_name, opt.epoch)))
     D2.load_state_dict(torch.load("saved_models/%s/D2_%d.pth" % (opt.dataset_name, opt.epoch)))
-    opt.epoch += 1 # increment so we don't end up saving over the model we just loaded!
 else:
     # Initialize weights
     E1.apply(weights_init_normal)
@@ -163,7 +120,7 @@ lr_scheduler_D2 = torch.optim.lr_scheduler.LambdaLR(
     optimizer_D2, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch, opt.decay_epoch).step
 )
 
-Tensor = torch.cuda.FloatTensor if use_cuda else torch.Tensor
+Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
 # Image transformations
 transforms_ = [
@@ -176,14 +133,14 @@ transforms_ = [
 
 # Training data loader
 dataloader = DataLoader(
-    ImageDataset("data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
+    ImageDataset("../../data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
     batch_size=opt.batch_size,
     shuffle=True,
     num_workers=opt.n_cpu,
 )
 # Test data loader
 val_dataloader = DataLoader(
-    ImageDataset("data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
+    ImageDataset("../../data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
     batch_size=5,
     shuffle=True,
     num_workers=1,
@@ -204,8 +161,8 @@ def sample_images(batches_done):
 
 
 def compute_kl(mu):
-    mu_2 = torch.pow(mu, 2) # mu is a vector, square element wise
-    loss = torch.mean(mu_2) # now take the mean, this is the mean of squared magnitude I guess...
+    mu_2 = torch.pow(mu, 2)
+    loss = torch.mean(mu_2)
     return loss
 
 
@@ -228,9 +185,6 @@ if os.path.isfile(csv_file):
     # Just save a backup incase.  This shouldn't happen often but should catch my attention if a bunch of these files start showing up
     os.rename(csv_file, csv_file + '.bak.' + str(np.random.rand()))
 
-
-## TODO: Can I make this a generalized loop that is independent of the models so I don't have to keep re-implementing everything?
-##       For now it's probably easier to just keep making the little changes.
 
 prev_time = time.time()
 for epoch in range(opt.epoch, opt.n_epochs):
@@ -369,7 +323,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
     loss_df.to_csv(csv_file)
 
-    if (opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0) or stop_next_epoch_flag:
+    if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
         # Save model checkpoints
         torch.save(E1.state_dict(), "saved_models/%s/E1_%d.pth" % (opt.dataset_name, epoch))
         torch.save(E2.state_dict(), "saved_models/%s/E2_%d.pth" % (opt.dataset_name, epoch))
@@ -377,6 +331,3 @@ for epoch in range(opt.epoch, opt.n_epochs):
         torch.save(G2.state_dict(), "saved_models/%s/G2_%d.pth" % (opt.dataset_name, epoch))
         torch.save(D1.state_dict(), "saved_models/%s/D1_%d.pth" % (opt.dataset_name, epoch))
         torch.save(D2.state_dict(), "saved_models/%s/D2_%d.pth" % (opt.dataset_name, epoch))
-
-    if stop_next_epoch_flag:
-        sys.exit(0)

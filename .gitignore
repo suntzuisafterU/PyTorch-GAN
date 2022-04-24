@@ -6,7 +6,8 @@
 
 data/*/
 implementations/*/data
-implementations/*/images
-implementations/*/saved_models
+**/images
+**/saved_models
+**/gen_for_eval/
 
 __pycache__
